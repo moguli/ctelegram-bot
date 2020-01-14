@@ -282,17 +282,13 @@ void send_message(long chat_id, char const *text)
 
 static void _write(unsigned char **dict, cJSON *src, cJSON **dest, int indexc, int user)
 {
-
     if(user==1) {
         if(dict[1] == (unsigned char *)"is_bot") {
-                indexc = sizeof(dict)/sizeof(*dict);
-                char *lastkeyword = dict[indexc-2];
-                dict[indexc-2] = "username";
-                dict[indexc-1] = "language_code";
+            char *lastkeyword = dict[indexc-2];
+            dict[indexc-2] = "username";
+            dict[indexc-1] = "language_code";
         }
         else if(dict[1] == (unsigned char *)"first_name") {
-            
-            int indexc = sizeof(dict)/sizeof(*dict);
             char *lastkeyword = dict[indexc-2];
             dict[indexc-2] = "username";
             dict[indexc-1] = "type";
