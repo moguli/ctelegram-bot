@@ -11,17 +11,14 @@ struct bot {
 };
 
 struct bot *_bot=0;
-int _last_update=-1;
+int _last_update=9999999;
 
-static unsigned char const *_update_keys[3] = {"ok", "result"};
-static unsigned char const *_message_keys[4] = {"message", "message_id", "from"};
-static unsigned char const *_author_keys[6] = {"id", "is_bot", "first_name", "username",  "language_code"};
-static unsigned char const *_author_keys_nousrnm[5] = {"id", "is_bot", "first_name", "language_code"};
-static unsigned char const *_private_chat_keys[5] = {"id", "first_name",  "username", "type"};
-static unsigned char const *_private_chat_keys_nousrnm[4] = {"id", "first_name", "type"};
-static unsigned char const *_publicgroup_chat_keys[5] = {"id", "title", "username", "type"};
-static unsigned char const *_publicgroup_chat_keys_nousrnm[4] = {"id", "title", "type"};
-static unsigned char const *_privategroup_chat_keys[4] = {"id", "title", "type"};
+static unsigned char *_update_keys[3] = {"ok", "result"};
+static unsigned char *_message_keys[4] = {"message", "message_id", "from"};
+static unsigned char *_author_keys_nousrnm[5] = {"id", "is_bot", "first_name", "language_code"};
+static unsigned char *_private_chat_keys_nousrnm[4] = {"id", "first_name", "type"};
+static unsigned char *_publicgroup_chat_keys[5] = {"id", "title", "username", "type"};
+static unsigned char *_privategroup_chat_keys[4] = {"id", "title", "type"};
 
 static char const *baseURL = "https://api.telegram.org/bot";
 
@@ -29,7 +26,7 @@ static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, voi
 static void write_message_author(cJSON **, struct updates *, int);
 static void write_source_publicgroupchat(cJSON **, struct updates *, int, int);
 static void write_source_groupchat(cJSON **, struct updates *);
-static void _write(unsigned char const **, cJSON *, cJSON **, int);
+static void _write(unsigned char **, cJSON *, cJSON **, int, int);
 
 //-----------------------------------------------------------
 
@@ -140,8 +137,9 @@ void get_updates(struct updates *update)
     struct parameters *param = malloc(3*sizeof(struct parameters));
 
     char offset[100];
-    sprintf(offset, "%d", _last_update+1);
-
+    _last_update++;
+    
+    sprintf(offset, "%d", _last_update);
     make_param(param, "offset", offset, 0);
     make_param(param, "timeout", "10", 1);
 
@@ -166,7 +164,6 @@ void get_updates(struct updates *update)
 
             update_id = getitem(result, "update_id");
             _last_update = update_id->valueint;
-
             message=getitem(result, *_message_keys);
             cJSON *_tmp_message_keys[10];
 
@@ -189,24 +186,28 @@ void get_updates(struct updates *update)
                 tmp = getitem(chat_section, "username");
 
                 if(tmp) 
-                    _write(_author_keys, from_section, _tmp_message_keys, 
-                        sizeof(_author_keys)/sizeof(*_author_keys)
+                    _write(_author_keys_nousrnm, from_section, _tmp_message_keys, 
+                        sizeof(_author_keys_nousrnm)/sizeof(*_author_keys_nousrnm),
+                        1
                     );
                 else
                     _write(_author_keys_nousrnm, from_section, _tmp_message_keys, 
-                        sizeof(_author_keys_nousrnm)/sizeof(*_author_keys_nousrnm)
+                        sizeof(_author_keys_nousrnm)/sizeof(*_author_keys_nousrnm),
+                        0
                     );
 
                 if(tmp) write_message_author(_tmp_message_keys,update,1);
                 else    write_message_author(_tmp_message_keys,update,0);
                                 
                 if(tmp)
-                    _write(_private_chat_keys, chat_section, _tmp_message_keys, 
-                        sizeof(_private_chat_keys)/sizeof(*_private_chat_keys)
+                    _write(_private_chat_keys_nousrnm, chat_section, _tmp_message_keys, 
+                        sizeof(_private_chat_keys_nousrnm)/sizeof(*_private_chat_keys_nousrnm),
+                        1
                     );
                 else 
                     _write(_private_chat_keys_nousrnm, chat_section, _tmp_message_keys, 
-                        sizeof(_private_chat_keys_nousrnm)/sizeof(*_private_chat_keys_nousrnm)
+                        sizeof(_private_chat_keys_nousrnm)/sizeof(*_private_chat_keys_nousrnm),
+                        0
                     );
 
                 /* Don't use valuelong here.
@@ -222,7 +223,8 @@ void get_updates(struct updates *update)
                 tmp = getitem(chat_section, "username");
                 if(tmp) {        
                     _write(_publicgroup_chat_keys, chat_section, _tmp_message_keys, 
-                        sizeof(_publicgroup_chat_keys)/sizeof(*_publicgroup_chat_keys)
+                        sizeof(_publicgroup_chat_keys)/sizeof(*_publicgroup_chat_keys),
+                        0
                     );
 
                     if(tmp) write_source_publicgroupchat(_tmp_message_keys,update,0,1);
@@ -230,13 +232,15 @@ void get_updates(struct updates *update)
                 }
                 else {                   
                     _write(_privategroup_chat_keys, chat_section, _tmp_message_keys, 
-                        sizeof(_privategroup_chat_keys)/sizeof(*_privategroup_chat_keys)
+                        sizeof(_privategroup_chat_keys)/sizeof(*_privategroup_chat_keys),
+                        0
                     );
                     write_source_groupchat(_tmp_message_keys,update);
                 }
 
                 _write(_author_keys_nousrnm, from_section, _tmp_message_keys, 
-                    sizeof(_author_keys_nousrnm)/sizeof(*_author_keys_nousrnm)
+                    sizeof(_author_keys_nousrnm)/sizeof(*_author_keys_nousrnm),
+                    0
                 );
 
                 write_message_author(_tmp_message_keys,update,0);
@@ -276,9 +280,25 @@ void send_message(long chat_id, char const *text)
 
 //-----------------------------------------------------------
 
-static void _write(unsigned char const **dict, cJSON *src, cJSON **dest, int indexc)
+static void _write(unsigned char **dict, cJSON *src, cJSON **dest, int indexc, int user)
 {
-    for(int i=0;i<indexc;i++)
+
+    if(user==1) {
+        if(dict[1] == (unsigned char *)"is_bot") {
+                indexc = sizeof(dict)/sizeof(*dict);
+                char *lastkeyword = dict[indexc-2];
+                dict[indexc-2] = "username";
+                dict[indexc-1] = "language_code";
+        }
+        else if(dict[1] == (unsigned char *)"first_name") {
+            
+            int indexc = sizeof(dict)/sizeof(*dict);
+            char *lastkeyword = dict[indexc-2];
+            dict[indexc-2] = "username";
+            dict[indexc-1] = "type";
+        }
+    }
+    for(int i=0;dict[i]!=0;i++)
         dest[i] = getitem(src,dict[i]);
 }
 
