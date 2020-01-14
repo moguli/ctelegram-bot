@@ -284,14 +284,16 @@ static void _write(unsigned char **dict, cJSON *src, cJSON **dest, int indexc, i
 {
     if(user==1) {
         if(dict[1] == (unsigned char *)"is_bot") {
+           // indexc = sizeof(dict)/sizeof(*dict);
             char *lastkeyword = dict[indexc-2];
             dict[indexc-2] = "username";
-            dict[indexc-1] = "language_code";
+            dict[indexc-1] = lastkeyword;
         }
         else if(dict[1] == (unsigned char *)"first_name") {
+            //int indexc = sizeof(dict)/sizeof(*dict);
             char *lastkeyword = dict[indexc-2];
             dict[indexc-2] = "username";
-            dict[indexc-1] = "type";
+            dict[indexc-1] = lastkeyword;
         }
     }
     for(int i=0;dict[i]!=0;i++)
