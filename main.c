@@ -20,6 +20,8 @@ int main() {
                     send_message(update->result.message.chat.id, "Hello!");
                 }
             }
+            // Clear the structure once the update is handled
+            memset(update, 0x0, sizeof(struct updates));
         }
     }
     return 0;
